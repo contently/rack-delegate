@@ -1,8 +1,9 @@
 require 'net/http'
+require 'pry'
 
 module Rack
   module Delegate
-    class NetHttpRequestBuilder < Struct.new(:rack_request, :uri_rewriter, :net_http_request_rewriter)
+    class NetHttpRequestBuilder < Struct.new(:rack_request, :uri_rewriters, :net_http_request_rewriter)
       CONTENT_HEADERS = %w(
         CONTENT_LENGTH
         CONTENT_TYPE
@@ -12,6 +13,7 @@ module Rack
         HTTP_HOST
         HTTP_CONNECTION
       ).freeze
+
 
       def build
         net_http_request_class.new(url).tap do |net_http_request|
@@ -33,7 +35,11 @@ module Rack
       end
 
       def url
-        uri_rewriter.rewrite(URI(rack_request.url))
+        url = URI(rack_request.url)
+        uri_rewriters.each do |rewriter|
+          url = rewriter.rewrite(url)
+        end
+        url
       end
 
       def delegate_rack_headers_to(net_http_request)
