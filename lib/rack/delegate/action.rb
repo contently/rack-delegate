@@ -3,7 +3,7 @@ module Rack
     class Action < Struct.new(:pattern, :delegator)
       def dispatch(request)
         pattern.match(request.fullpath) do
-          throw :dispatched, delegator
+          throw :dispatched, self
         end
       end
     end

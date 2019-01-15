@@ -33,7 +33,7 @@ module Rack
       end
 
       def rewrite(&block)
-        @rewriter = make_rewriter(&block);
+        @rewriter = make_rewriter(&block)
         @rewriter
       end
 

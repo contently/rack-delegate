@@ -35,6 +35,8 @@ module Rack
       end
 
       def url
+        # TODO: I think this makes it so that rewriter rules from other
+        # routes would actually rewrite here; we don't want that
         url = URI(rack_request.url)
         uri_rewriters.each do |rewriter|
           url = rewriter.rewrite(url)
