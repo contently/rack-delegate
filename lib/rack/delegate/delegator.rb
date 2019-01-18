@@ -56,11 +56,11 @@ module Rack
             responses: results.map do |r|
               {
                 status_code: status_of(r),
-                body: body_of(r).force_encoding('ISO-8859-1').encode('UTF-8')
+                body: body_of(r)
               }
             end
           }
-          return [max_status(results),
+          return [safe_max_status(results),
                   headers_of(results[0]),
                   [response.to_json]]
         end
@@ -76,11 +76,25 @@ module Rack
       end
 
       def body_of(response)
-        response[2][0] || ''
+        safe_parse(response[2][0] || '') || ''
       end
 
-      def max_status(responses)
-        responses.max_by { |a| a[0].to_i }[0]
+      def safe_parse(str)
+        return str if str.length == 0
+        res = JSON.parse(str)
+        binding.pry
+        res
+      rescue StandardError
+        binding.pry
+        str
+      end
+
+      def safe_max_status(responses)
+        res = responses.max_by { |a| a[0].to_i }[0]
+        if (res == 304)
+          res = responses.all? {|r| r[0].to_i == 304} ? 304 : 200
+        end
+        res
       end
 
       def net_http_options(url)
