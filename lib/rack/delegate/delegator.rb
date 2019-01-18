@@ -76,7 +76,7 @@ module Rack
       end
 
       def body_of(response)
-        response[2][0]
+        response[2][0] || ""
       end
 
       def max_status(responses)
