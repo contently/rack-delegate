@@ -3,14 +3,14 @@ require 'timeout_errors'
 module Rack
   module Delegate
     class Delegator
-      def initialize(urls, uri_rewriters, net_http_request_rewriter, timeout_response)
-        @urls = if urls.is_a? Array
-                  urls.map { |u| map_to(u) }
+      def initialize(upstreams, uri_rewriters, net_http_request_rewriter, timeout_response)
+        @upstreams = if upstreams.is_a? Array
+                  upstreams.map { |u| map_to(u) }
                 else
-                  [URI(urls)]
+                  [URI(upstreams)]
                 end
-        # puts @urls.to_s
-        # puts "--- #{@urls.length}"
+        # puts @upstreams.to_s
+        # puts "--- #{@upstreams.length}"
         @uri_rewriters = uri_rewriters
         @net_http_request_rewriter = net_http_request_rewriter
         @timeout_response = timeout_response
@@ -18,10 +18,10 @@ module Rack
 
       def call(env)
         res = nil
-        res = if @urls.length > 1
+        res = if @upstreams.length > 1
                 call_multi(env)
               else
-                call_single(env, @urls[0])[:response]
+                call_single(env, @upstreams[0])[:response]
               end
         res
       end
@@ -53,7 +53,7 @@ module Rack
       end
 
       def call_multi(env)
-        results = @urls.map do |url|
+        results = @upstreams.map do |url|
           Thread.new do
             call_single(env, url)
           end
