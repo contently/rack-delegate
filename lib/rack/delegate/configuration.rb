@@ -20,6 +20,7 @@ module Rack
 
       def from(pattern, to:, constraints: nil, rewrite: nil)
         rewriters = [@rewriter]
+
         unless rewrite.nil?
           rewriters << make_rewriter(&rewrite)
         end
