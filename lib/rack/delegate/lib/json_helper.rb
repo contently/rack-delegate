@@ -1,5 +1,6 @@
 module Rack
   module Delegate
+    # Provides JSON helpers
     module JsonHelper
       def safe_parse(str)
         return str if str.empty?

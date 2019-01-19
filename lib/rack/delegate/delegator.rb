@@ -1,14 +1,20 @@
 require 'timeout_errors'
 require_relative './lib/upstream_mapper'
 require_relative './lib/json_helper'
+require_relative './lib/response_helpers'
 
 module Rack
   module Delegate
+    # The Delegator class acts as the Rack middleware coordinating
+    # requests and responses
     class Delegator
       include Rack::Delegate::Mapping
       include Rack::Delegate::JsonHelper
+      include Rack::Delegate::ResponseHelpers
 
-      def initialize(upstreams, uri_rewriters, net_http_request_rewriter, timeout_response)
+      def initialize(upstreams, uri_rewriters, net_http_request_rewriter,
+                     timeout_response)
+
         @upstreams = make_upstreams(upstreams)
         @uri_rewriters = uri_rewriters
         @net_http_request_rewriter = net_http_request_rewriter
@@ -85,18 +91,6 @@ module Rack
         }
       end
 
-      def status_of(response)
-        response.first
-      end
-
-      def headers_of(response)
-        response[1]
-      end
-
-      def body_of(response)
-        safe_parse(response[2][0] || '') || ''
-      end
-
       def safe_max_status(responses)
         res = responses.max_by { |a| a[0].to_i }[0]
         if res == 304
@@ -123,7 +117,9 @@ module Rack
 
           # Since Ruby 2.1 Net::HTTPHeader#to_hash returns the value as an
           # array of values and not a string. Try to coerce it for 2.0 support.
-          headers.each { |header, value| headers[header] = Array(value).join('; ') }
+          headers.each do |header, value|
+            headers[header] = Array(value).join('; ')
+          end
         end
       end
     end

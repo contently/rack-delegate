@@ -1,6 +1,7 @@
 require 'pry'
 module Rack
   module Delegate
+    # The configurator/DSL provider for the configuration
     class Configuration
       def self.from_block(&block)
         config = new
@@ -21,14 +22,17 @@ module Rack
       def from(pattern, to:, constraints: nil, rewrite: nil)
         rewriters = [@rewriter]
 
-        unless rewrite.nil?
-          rewriters << make_rewriter(&rewrite)
-        end
-        action = Action.new(pattern, Delegator.new(to, rewriters, @changer, @timeout))
+        rewriters << make_rewriter(&rewrite) unless rewrite.nil?
+        action = Action.new(pattern,
+                            Delegator.new(to, rewriters, @changer, @timeout))
+
         action = Rack::Timeout.new(action) if timeout?
 
         constraints = Array(constraints).concat(@constraints)
-        action = ConstrainedAction.new(action, constraints) unless constraints.empty?
+
+        unless constraints.empty?
+          action = ConstrainedAction.new(action, constraints)
+        end
 
         @actions << action
       end
@@ -63,7 +67,6 @@ module Rack
         false
       end
 
-      private
       def make_rewriter(&block)
         Rewriter.new do |uri|
           uri.instance_eval(&block)
