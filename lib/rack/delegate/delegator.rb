@@ -1,39 +1,33 @@
 require 'timeout_errors'
+require_relative './lib/upstream_mapper'
+require_relative './lib/json_helper'
 
 module Rack
   module Delegate
     class Delegator
+      include Rack::Delegate::Mapping
+      include Rack::Delegate::JsonHelper
+
       def initialize(upstreams, uri_rewriters, net_http_request_rewriter, timeout_response)
-        @upstreams = if upstreams.is_a? Array
-                  upstreams.map { |u| map_to(u) }
-                else
-                  [URI(upstreams)]
-                end
-        # puts @upstreams.to_s
-        # puts "--- #{@upstreams.length}"
+        @upstreams = make_upstreams(upstreams)
         @uri_rewriters = uri_rewriters
         @net_http_request_rewriter = net_http_request_rewriter
         @timeout_response = timeout_response
       end
 
       def call(env)
-        res = nil
         res = if @upstreams.length > 1
                 call_multi(env)
               else
-                call_single(env, @upstreams[0])[:response]
+                call_single(env, @upstreams[0])
               end
-        res
+        translate_response(res)
       end
 
       private
 
-      def map_to(to)
-        if to.is_a? Hash
-          { uri: URI(to[:uri]), domain: to[:domain] }
-        elsif to.is_a? String
-          { uri: URI(to), domain: nil }
-        end
+      def translate_response(res)
+        (res.is_a? Hash) && res.key?(:response) ? res[:response] : res
       end
 
       def call_single(env, url)
@@ -42,12 +36,7 @@ module Rack
                                                      @uri_rewriters,
                                                      @net_http_request_rewriter)
                                                 .build
-
-        http_response = Net::HTTP.start(*net_http_options(url[:uri])) do |http|
-          http.request(net_http_request)
-        end
-
-        { response: convert_to_rack_response(http_response), url: url }
+        perform_call(net_http_request, url)
       rescue TimeoutErrors
         @timeout_response.call(env)
       end
@@ -61,27 +50,43 @@ module Rack
         package_results(results)
       end
 
-      def package_results(results)
-        if results.length > 1
-          response = {
-            responses: results.map do |r|
-              {
-                status_code: status_of(r[:response]),
-                headers: headers_of(r[:response]),
-                domain: r[:url][:domain],
-                body: body_of(r[:response])
-              }
-            end
-          }
-          return [safe_max_status(results.map { |r| r[:response] }),
-                  headers_of(results[0][:response]),
-                  [response.to_json]]
+      def perform_call(net_http_request, url)
+        {
+          response: convert_to_rack_response(
+            perform_request(net_http_request, url)
+          ),
+          url: url
+        }
+      end
+
+      def perform_request(net_http_request, url)
+        Net::HTTP.start(*net_http_options(url[:uri])) do |http|
+          http.request(net_http_request)
         end
-        [status_of(results[0][:response]), headers_of(results[0][:response]), body_of(results[0][:response])]
+      end
+
+      def package_results(results)
+        response = {
+          responses: results.map do |r|
+            make_result(r)
+          end
+        }
+        [safe_max_status(results.map { |r| r[:response] }),
+         headers_of(results[0][:response]),
+         [response.to_json]]
+      end
+
+      def make_result(result)
+        {
+          status_code: status_of(result[:response]),
+          headers: headers_of(result[:response]),
+          domain: result[:url][:domain],
+          body: body_of(result[:response])
+        }
       end
 
       def status_of(response)
-        response[0]
+        response.first
       end
 
       def headers_of(response)
@@ -90,15 +95,6 @@ module Rack
 
       def body_of(response)
         safe_parse(response[2][0] || '') || ''
-      end
-
-      def safe_parse(str)
-        return str if str.empty?
-
-        res = JSON.parse(str)
-        res
-      rescue StandardError
-        str
       end
 
       def safe_max_status(responses)
