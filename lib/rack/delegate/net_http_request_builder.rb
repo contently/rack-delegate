@@ -1,5 +1,4 @@
 require 'net/http'
-require 'pry'
 
 module Rack
   module Delegate

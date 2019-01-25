@@ -1,4 +1,3 @@
-require 'pry'
 module Rack
   module Delegate
     # The configurator/DSL provider for the configuration

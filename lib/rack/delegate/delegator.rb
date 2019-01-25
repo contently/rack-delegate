@@ -100,7 +100,7 @@ module Rack
       end
 
       def net_http_options(url)
-        [url.host, url.port, https: url.scheme == 'https']
+        [url.host, url.port, use_ssl: url.scheme == 'https']
       end
 
       def convert_to_rack_response(http_response)
