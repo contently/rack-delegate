@@ -44,7 +44,7 @@ module Rack
                                                 .build
         perform_call(net_http_request, url)
       rescue TimeoutErrors
-        @timeout_response.call(env)
+        make_result(@timeout_response.call(env))
       end
 
       def call_multi(env)
@@ -61,6 +61,11 @@ module Rack
           response: convert_to_rack_response(
             perform_request(net_http_request, url)
           ),
+          url: url
+        }
+      rescue StandardError => e
+        {
+          response: [500, {}, [e.to_s]],
           url: url
         }
       end
@@ -83,11 +88,19 @@ module Rack
       end
 
       def make_result(result)
+        target = if result.is_a? Array
+                   result
+                 elsif result.is_a? Hash
+                   result[:response]
+                 else
+                   raise 'Invalid result type'
+                 end
+
         {
-          status_code: status_of(result[:response]),
-          headers: headers_of(result[:response]),
+          status_code: status_of(target),
+          headers: headers_of(target),
           domain: result[:url][:domain],
-          body: body_of(result[:response])
+          body: body_of(target)
         }
       end
 
